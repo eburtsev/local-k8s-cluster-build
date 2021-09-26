@@ -1,0 +1,26 @@
+- hosts: k8s_management_nodes
+  become: yes
+  tasks:
+    - name: Setup management node | kubeadm init
+      shell:
+        cmd: kubeadm init --pod-network-cidr 10.244.0.0/16
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Setup management node | Copy config to $HOME
+      shell:
+        cmd: mkdir -p $HOME/.kube && cp /etc/kubernetes/admin.conf $HOME/.kube/config && chown $(id -u):$(id -g) $HOME/.kube/config
+
+    - name: Setup management node | Copy config to local machine
+      fetch:
+        dest: /tmp
+        src: /etc/kubernetes/admin.conf
+
+    - name: Setup management node | Install flannel
+      shell:
+        cmd: kubectl apply -f https://github.com/coreos/flannel/blob/master/Documentation/kube-flannel.yml?raw=true
+
+- hosts: local
+  tasks:
+    - name: Setup management node | Copy config to $HOME at local machine
+      shell:
+        cmd: mkdir -p $HOME/.kube && cp /tmp/k8s-management-node/etc/kubernetes/admin.conf $HOME/.kube/config && chown $(id -u):$(id -g) $HOME/.kube/config

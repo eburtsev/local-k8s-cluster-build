@@ -1,0 +1,20 @@
+- hosts: local
+  become: yes
+  tasks:
+    - name: Create virtual network | Check net exists
+      shell:
+        cmd: virsh net-list | grep {{ net_name }} >/dev/null 2>&1 && echo true || echo false
+      register: virtual_network_exist_raw
+
+    - name: Create virtual network | Populate net exists var
+      set_fact:
+        virtual_network_exist: "{{ virtual_network_exist_raw.stdout | bool }}"
+
+    - name: Create virtual network | Create non-existing network
+      shell:
+        cmd: virsh net-define ../files/{{ net_name }}.xml
+      when: virtual_network_exist == false
+
+    - name: Create virtual network | Start network
+      shell:
+        cmd: virsh net-info {{ net_name }} | grep Active | grep no && virsh net-start {{ net_name }} || exit 0

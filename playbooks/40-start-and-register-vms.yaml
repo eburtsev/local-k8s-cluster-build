@@ -1,0 +1,58 @@
+- hosts: local
+  become: yes
+  tasks:
+    - name: Start VMs
+      shell:
+        executable: bash
+        cmd:
+          if [ "running" == "$(virsh domstate {{ item }})" ]; then
+            exit 0;
+          else
+            virsh start --domain {{ item }};
+          fi
+      with_inventory_hostnames:
+        - vms
+
+    - name: Find VMs IPs
+      shell:
+        executable: bash
+        cmd:
+          while [ "$(virsh net-dhcp-leases {{ net_name }} | grep {{ item }} >/dev/null 2>&1 && echo 1 || echo 0)" == "0" ]; do
+            sleep 5;
+          done;
+          virsh net-dhcp-leases {{ net_name }} | grep {{ item }} | awk '{ print $5; }' | cut -d/ -f1
+      with_inventory_hostnames:
+        - vms
+      register: vms_ips_raw
+
+    - name: Find VMs IPs | Populate VMs IPs map
+      set_fact:
+        vms_ips: "{{ vms_ips|default({}) | combine({ item.item: item.stdout }) }}"
+      with_items: "{{ vms_ips_raw.results }}"
+
+    - name: Find VMs IPs | Register VMs in inventory
+      add_host:
+        name: "{{ item }}"
+      args:
+        ansible_host: "{{ vms_ips[item] }}"
+      with_inventory_hostnames:
+        - vms
+
+    - name: Find VMs IPs | Add /etc/hosts entries
+      shell:
+        executable: bash
+        cmd:
+          if [ <(cat /etc/hosts | grep -qF "{{ item }}") ]; then
+            sed -i.bak "s/.* {{ item }}/{{ vms_ips[item] }} {{ item }}/g" /etc/hosts;
+          else
+            echo "{{ vms_ips[item] }} {{ item }}" >> /etc/hosts;
+          fi
+      with_inventory_hostnames:
+        - vms
+
+    - name: Wait for SSH port open
+      wait_for:
+        host: "{{ vms_ips[item] }}"
+        port: 22
+      with_inventory_hostnames:
+        - vms

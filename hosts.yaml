@@ -1,0 +1,15 @@
+all:
+  children:
+    local:
+      hosts:
+        local-machine:
+    vms:
+      children:
+        k8s_management_nodes:
+          hosts:
+            k8s-management-node:
+        k8s_worker_nodes:
+          hosts:
+            k8s-worker-node-01:
+            k8s-worker-node-02:
+            k8s-worker-node-03:
