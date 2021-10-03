@@ -2,16 +2,19 @@
   copy:
     dest: /etc/docker/daemon.json
     src: files/daemon.json
+  register: modify_daemon_json
 
 - name: Restart docker service
   systemd:
     state: restarted
     name: docker
+  when: modify_daemon_json.changed
 
 - name: Import k8s GPG key
   shell:
     cmd: curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/k8s-archive-keyring.gpg
     creates: /usr/share/keyrings/k8s-archive-keyring.gpg
+    warn: no
 
 - name: Add k8s apt repository
   shell:

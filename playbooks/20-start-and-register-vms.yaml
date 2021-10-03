@@ -13,7 +13,7 @@
         executable: bash
         cmd:
           while [ "$(virsh net-dhcp-leases {{ k8s_network.name }} | grep {{ item }} >/dev/null 2>&1 && echo 1 || echo 0)" == "0" ]; do
-            sleep 5;
+            sleep 5s;
           done;
           virsh net-dhcp-leases {{ k8s_network.name }} | grep {{ item }} | awk '{ print $5; }' | cut -d/ -f1
       with_inventory_hostnames:

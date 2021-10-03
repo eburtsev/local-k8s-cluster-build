@@ -13,6 +13,7 @@
   shell:
     cmd: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
     creates: /usr/share/keyrings/docker-archive-keyring.gpg
+    warn: no
 
 - name: Add docker apt repository
   shell:
