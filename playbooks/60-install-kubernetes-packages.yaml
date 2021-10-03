@@ -3,13 +3,13 @@
   tasks:
     - name: Install k8s | Import k8s GPG key
       shell:
-        cmd: curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k8s-archive-keyring.gpg
+        cmd: curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/k8s-archive-keyring.gpg
         creates: /usr/share/keyrings/k8s-archive-keyring.gpg
 
     - name: Install k8s | Add k8s apt repository
       shell:
         cmd: echo "deb [arch=amd64 signed-by=/usr/share/keyrings/k8s-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main"
-          | sudo tee /etc/apt/sources.list.d/k8s.list > /dev/null
+          | tee /etc/apt/sources.list.d/k8s.list > /dev/null
         creates: /etc/apt/sources.list.d/k8s.list
 
     - name: Install k8s | Install k8s packages

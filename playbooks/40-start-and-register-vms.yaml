@@ -2,14 +2,9 @@
   become: yes
   tasks:
     - name: Start VMs
-      shell:
-        executable: bash
-        cmd:
-          if [ "running" == "$(virsh domstate {{ item }})" ]; then
-            exit 0;
-          else
-            virsh start --domain {{ item }};
-          fi
+      community.libvirt.virt:
+        name: "{{ item }}"
+        state: running
       with_inventory_hostnames:
         - vms
 
@@ -39,14 +34,11 @@
         - vms
 
     - name: Find VMs IPs | Add /etc/hosts entries
-      shell:
-        executable: bash
-        cmd:
-          if [ <(cat /etc/hosts | grep -qF "{{ item }}") ]; then
-            sed -i.bak "s/.* {{ item }}/{{ vms_ips[item] }} {{ item }}/g" /etc/hosts;
-          else
-            echo "{{ vms_ips[item] }} {{ item }}" >> /etc/hosts;
-          fi
+      lineinfile:
+        dest: /etc/hosts
+        regexp: '.*{{ item }}$'
+        line: "{{ vms_ips[item] }} {{item}}"
+        state: present
       with_inventory_hostnames:
         - vms
 

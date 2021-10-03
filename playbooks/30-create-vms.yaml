@@ -1,33 +1,15 @@
 - hosts: local
   become: yes
   tasks:
-    - name: Create VMs | Check VMs exists
-      shell:
-        cmd: virsh list | grep {{ item }} >/dev/null 2>&1 && echo true || echo false
-      register: vm_exist_raw
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Check VMs exists | Populate VMs existing map
-      set_fact:
-        vm_existing_map: "{{ vm_existing_map|default({}) | combine({ item.item: item.stdout | bool }) }}"
-      with_items: "{{ vm_exist_raw.results }}"
-
     - name: Create VMs | Create base images folder
       file:
         path: "{{ base_images_folder }}"
         state: directory
 
-    - name: Create VMs | Check base image exists
-      stat:
-        path: "{{ base_images_folder }}/{{ base_image_name }}"
-      register: base_image_stat
-
     - name: Create VMs | Download base image
       get_url:
         url: "{{ base_image_url }}"
         dest: "{{ base_images_folder }}/{{ base_image_name }}"
-      when: not base_image_stat.stat.exists
 
     - name: Create VMs | Create VMs images folder
       file:
@@ -35,21 +17,14 @@
         state: directory
       with_inventory_hostnames:
         - vms
-      when: vm_existing_map[item] == false
 
     - name: Create VMs | Create VMs disk images
       shell:
         cmd: qemu-img create -f qcow2 -F qcow2 -o backing_file={{ base_images_folder }}/{{ base_image_name }} {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2
+          && qemu-img resize {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2 10G
+        creates: "{{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2"
       with_inventory_hostnames:
         - vms
-      when: vm_existing_map[item] == false
-
-    - name: Create VMs | Resize VMs disk images
-      shell:
-        cmd: qemu-img resize {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2 10G
-      with_inventory_hostnames:
-        - vms
-      when: vm_existing_map[item] == false
 
     - name: Create VMs | Create cloud-init config | /tmp folders
       file:
@@ -58,7 +33,6 @@
         recurse: yes
       with_inventory_hostnames:
         - vms
-      when: vm_existing_map[item] == false
 
     - name: Create VMs | Create cloud-init config | meta-data
       template:
@@ -66,7 +40,6 @@
         dest: /tmp/ci-iso/{{ item }}/meta-data
       with_inventory_hostnames:
         - vms
-      when: vm_existing_map[item] == false
 
     - name: Create VMs | Create cloud-init config | user-data
       template:
@@ -74,15 +47,25 @@
         dest: /tmp/ci-iso/{{ item }}/user-data
       with_inventory_hostnames:
         - vms
-      when: vm_existing_map[item] == false
 
     - name: Create VMs | Create cloud-init config | ISO
       shell:
         chdir: /tmp/ci-iso/{{ item }}
         cmd: genisoimage -output {{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso -volid cidata -joliet -rock user-data meta-data
+        creates: "{{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso"
       with_inventory_hostnames:
         - vms
-      when: vm_existing_map[item] == false
+
+    - name: Create VMs | Check VMs exists
+      community.libvirt.virt:
+        command: list_vms
+      register: vm_exist_raw
+
+    - name: Create VMs | Check VMs exists | Populate VMs existing map
+      set_fact:
+        vm_existing_map: "{{ vm_existing_map|default({}) | combine({ item: item in vm_exist_raw.list_vms }) }}"
+      with_inventory_hostnames:
+        - vms
 
     - name: Create VMs | Create non-existing VMs
       shell:

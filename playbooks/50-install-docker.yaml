@@ -14,13 +14,13 @@
 
     - name: Install docker | Import docker GPG key
       shell:
-        cmd: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        cmd: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
         creates: /usr/share/keyrings/docker-archive-keyring.gpg
 
     - name: Install docker | Add docker apt repository
       shell:
         cmd: echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-          | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          | tee /etc/apt/sources.list.d/docker.list > /dev/null
         creates: /etc/apt/sources.list.d/docker.list
 
     - name: Install docker | Install docker packages
