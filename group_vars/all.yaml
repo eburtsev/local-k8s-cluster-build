@@ -1,10 +1,17 @@
 ansible_ssh_private_key_file: /home/{{ ansible_user }}/.ssh/id_rsa
+ansible_ssh_public_key: "{{ lookup('file', '{{ ansible_ssh_private_key_file }}.pub') }}"
 
-net_name: k8s-network
-libvirt_images_folder: /var/lib/libvirt/images
-base_images_folder: "{{ libvirt_images_folder }}/base"
-base_image_release_version: focal
-kvm_os_variant: ubuntu20.04
-base_image_name: "{{ base_image_release_version }}-server-cloudimg-amd64.img"
-base_image_url: "https://cloud-images.ubuntu.com/{{ base_image_release_version }}/current/{{ base_image_name }}"
-ssh_public_key: "{{ lookup('file', '{{ ansible_ssh_private_key_file }}.pub') }}"
+k8s_network:
+  name: k8s-network
+  ip_address: 192.168.77.1
+  netmask: 255.255.255.0
+  dhcp_start: 192.168.77.64
+  dhcp_end: 192.168.77.254
+
+libvirt:
+  images_folder: /var/lib/libvirt/images
+
+vm:
+  os_variant: ubuntu20.04
+  base_image_name: "focal-server-cloudimg-amd64.img"
+  base_image_url: "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img"

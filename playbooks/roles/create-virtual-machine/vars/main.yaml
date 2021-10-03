@@ -1,0 +1,1 @@
+base_images_folder: "{{ libvirt_images_folder }}/base"

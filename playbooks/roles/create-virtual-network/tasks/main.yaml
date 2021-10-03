@@ -1,0 +1,16 @@
+- name: Create network
+  community.libvirt.virt_net:
+    command: define
+    name: "{{ network_name }}"
+    xml: "{{ lookup('template', 'templates/network.xml.j2') }}"
+    autostart: true
+
+- name: Enable autostart network
+  community.libvirt.virt_net:
+    name: "{{ network_name }}"
+    autostart: yes
+
+- name: Ensure network started
+  community.libvirt.virt_net:
+    name: "{{ network_name }}"
+    state: active

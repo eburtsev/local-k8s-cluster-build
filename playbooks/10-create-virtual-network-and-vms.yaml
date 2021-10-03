@@ -3,96 +3,25 @@
   roles:
     - kvm
   tasks:
-    - name: Create virtual network | Create network
-      community.libvirt.virt_net:
-        command: define
-        name: "{{ net_name }}"
-        xml: "{{ lookup('template', '../templates/network.xml.j2') }}"
-        autostart: true
+    - name: Setup virtual network
+      include_role:
+        name: create-virtual-network
+      vars:
+        network_name: "{{ k8s_network.name }}"
+        ip_address: "{{ k8s_network.ip_address }}"
+        netmask: "{{ k8s_network.netmask }}"
+        dhcp_start: "{{ k8s_network.dhcp_start }}"
+        dhcp_end: "{{ k8s_network.dhcp_end }}"
 
-    - name: Create virtual network | Enable autostart network
-      community.libvirt.virt_net:
-        name: "{{ net_name }}"
-        autostart: yes
-
-    - name: Create virtual network | Ensure network started
-      community.libvirt.virt_net:
-        name: "{{ net_name }}"
-        state: active
-
-    - name: Create VMs | Create base images folder
-      file:
-        path: "{{ base_images_folder }}"
-        state: directory
-
-    - name: Create VMs | Download base image
-      get_url:
-        url: "{{ base_image_url }}"
-        dest: "{{ base_images_folder }}/{{ base_image_name }}"
-
-    - name: Create VMs | Create VMs images folder
-      file:
-        path: "{{ libvirt_images_folder }}/{{ item }}"
-        state: directory
+    - name: Setup VMs
+      include_role:
+        name: create-virtual-machine
+      vars:
+        os_variant: "{{ vm.os_variant }}"
+        ssh_public_key: "{{ ansible_ssh_public_key }}"
+        libvirt_images_folder: "{{ libvirt.images_folder }}"
+        base_image_name: "{{ vm.base_image_name }}"
+        base_image_url: "{{ vm.base_image_url }}"
+        network_name: "{{ k8s_network.name }}"
       with_inventory_hostnames:
         - vms
-
-    - name: Create VMs | Create VMs disk images
-      shell:
-        cmd: qemu-img create -f qcow2 -F qcow2 -o backing_file={{ base_images_folder }}/{{ base_image_name }} {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2
-          && qemu-img resize {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2 10G
-        creates: "{{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2"
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Create cloud-init config | /tmp folders
-      file:
-        path: "/tmp/ci-iso/{{ item }}"
-        state: directory
-        recurse: yes
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Create cloud-init config | meta-data
-      template:
-        src: ../templates/meta-data.j2
-        dest: /tmp/ci-iso/{{ item }}/meta-data
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Create cloud-init config | user-data
-      template:
-        src: ../templates/user-data.j2
-        dest: /tmp/ci-iso/{{ item }}/user-data
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Create cloud-init config | ISO
-      shell:
-        chdir: /tmp/ci-iso/{{ item }}
-        cmd: genisoimage -output {{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso -volid cidata -joliet -rock user-data meta-data
-        creates: "{{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso"
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Check VMs exists
-      community.libvirt.virt:
-        command: list_vms
-      register: vm_exist_raw
-
-    - name: Create VMs | Check VMs exists | Populate VMs existing map
-      set_fact:
-        vm_existing_map: "{{ vm_existing_map|default({}) | combine({ item: item in vm_exist_raw.list_vms }) }}"
-      with_inventory_hostnames:
-        - vms
-
-    - name: Create VMs | Create non-existing VMs
-      shell:
-        cmd: virt-install --connect qemu:///system --virt-type kvm --name {{ item }}
-          --ram 2048 --vcpus=2 --os-type linux --os-variant {{ kvm_os_variant }}
-          --disk path={{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2,format=qcow2
-          --disk {{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso,device=cdrom
-          --import --network network={{ net_name }} --noautoconsole
-      with_inventory_hostnames:
-        - vms
-      when: vm_existing_map[item] == false

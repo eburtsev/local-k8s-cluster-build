@@ -1,0 +1,60 @@
+- name: Create base images folder
+  file:
+    path: "{{ base_images_folder }}"
+    state: directory
+
+- name: Download base image
+  get_url:
+    url: "{{ base_image_url }}"
+    dest: "{{ base_images_folder }}/{{ base_image_name }}"
+
+- name: Create {{ item }} images folder
+  file:
+    path: "{{ libvirt_images_folder }}/{{ item }}"
+    state: directory
+
+- name: Create {{ item }} disk images
+  shell:
+    cmd: qemu-img create -f qcow2 -F qcow2 -o backing_file={{ base_images_folder }}/{{ base_image_name }} {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2
+      && qemu-img resize {{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2 10G
+    creates: "{{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2"
+
+- name: Create cloud-init config for {{ item }} | /tmp folders
+  file:
+    path: "/tmp/ci-iso/{{ item }}"
+    state: directory
+    recurse: yes
+
+- name: Create cloud-init config for {{ item }} | meta-data
+  template:
+    src: ../templates/meta-data.j2
+    dest: /tmp/ci-iso/{{ item }}/meta-data
+
+- name: Create cloud-init config for {{ item }} | user-data
+  template:
+    src: ../templates/user-data.j2
+    dest: /tmp/ci-iso/{{ item }}/user-data
+
+- name: Create cloud-init config for {{ item }} | ISO
+  shell:
+    chdir: /tmp/ci-iso/{{ item }}
+    cmd: genisoimage -output {{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso -volid cidata -joliet -rock user-data meta-data
+    creates: "{{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso"
+
+- name: Check VM ({{ item }}) exists
+  community.libvirt.virt:
+    command: list_vms
+  register: vm_exist_raw
+
+- name: Check VM ({{ item }}) exists | Populate VMs existing map
+  set_fact:
+    vm_existing_map: "{{ vm_existing_map|default({}) | combine({ item: item in vm_exist_raw.list_vms }) }}"
+
+- name: Create non-existing VM ({{ item }})
+  shell:
+    cmd: virt-install --connect qemu:///system --virt-type kvm --name {{ item }}
+      --ram 2048 --vcpus=2 --os-type linux --os-variant {{ os_variant }}
+      --disk path={{ libvirt_images_folder }}/{{ item }}/{{ item }}.qcow2,format=qcow2
+      --disk {{ libvirt_images_folder }}/{{ item }}/{{ item }}-cidata.iso,device=cdrom
+      --import --network network={{ network_name }} --noautoconsole
+  when: vm_existing_map[item] == false
