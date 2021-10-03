@@ -1,6 +1,25 @@
 - hosts: local
   become: yes
+  roles:
+    - kvm
   tasks:
+    - name: Create virtual network | Create network
+      community.libvirt.virt_net:
+        command: define
+        name: "{{ net_name }}"
+        xml: "{{ lookup('template', '../templates/network.xml.j2') }}"
+        autostart: true
+
+    - name: Create virtual network | Enable autostart network
+      community.libvirt.virt_net:
+        name: "{{ net_name }}"
+        autostart: yes
+
+    - name: Create virtual network | Ensure network started
+      community.libvirt.virt_net:
+        name: "{{ net_name }}"
+        state: active
+
     - name: Create VMs | Create base images folder
       file:
         path: "{{ base_images_folder }}"

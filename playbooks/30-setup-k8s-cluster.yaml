@@ -1,0 +1,35 @@
+- hosts: k8s_management_nodes
+  become: yes
+  roles:
+    - k8s-master
+  tasks:
+    - name: Setup management node | Copy config to local machine
+      fetch:
+        dest: /tmp
+        src: /etc/kubernetes/admin.conf
+
+    - name: Setup management node | Print join command
+      shell:
+        cmd: kubeadm token create --print-join-command
+      register: k8s_cluster_join_command_raw
+
+    - name: Setup management node | Extract join command
+      set_fact:
+        k8s_cluster_join_command: "{{ k8s_cluster_join_command_raw.stdout }}"
+
+- hosts: k8s_worker_nodes
+  become: yes
+  roles:
+    - role: k8s-worker
+      vars:
+        k8s_cluster_join_command: "{{ hostvars[groups['k8s_management_nodes'][0]]['k8s_cluster_join_command'] }}"
+
+- hosts: local
+  tasks:
+    - name: Setup management node | Copy kube config to /home/{{ ansible_user }}/.kube/config at local machine
+      copy:
+        dest: /home/{{ ansible_user }}/.kube/config
+        src: /tmp/k8s-management-node/etc/kubernetes/admin.conf
+        force: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"

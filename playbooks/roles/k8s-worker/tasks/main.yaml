@@ -1,0 +1,4 @@
+- name: Setup worker nodes | kubeadm join
+  shell:
+    cmd: "{{ k8s_cluster_join_command }}"
+    creates: /etc/kubernetes/kubelet.conf
