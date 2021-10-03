@@ -1,0 +1,19 @@
+- hosts: local
+  become: yes
+  tasks:
+    - name: Remove VMs
+      shell:
+        cmd: virsh destroy {{ item }} && virsh undefine {{ item }} || exit 0
+      with_inventory_hostnames:
+        - vms
+
+    - name: Remove VM's images
+      file:
+        path: "{{ libvirt.images_folder }}/{{ item }}"
+        state: absent
+      with_inventory_hostnames:
+        - vms
+
+    - name: Remove network
+      shell:
+        cmd: virsh net-destroy {{ k8s_network.name }} && virsh net-undefine {{ k8s_network.name }} || exit 0

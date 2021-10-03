@@ -7,8 +7,12 @@ Collection of ansible scripts creating local k8s cluster on server with KVM-base
 ```shell
 ansible-galaxy install -r requirements.yaml
 ```
-
-2. Run with:
+2. Create cluster with following command:
 ```shell
-ansible-playbook playbooks/*.yaml --extra-vars "ansible_user=<USERNAME>" --extra-vars "ansible_sudo_pass=<PASWORD>"
+ansible-playbook playbooks/{10,20,30}-*.yaml --extra-vars "ansible_user=<USERNAME>" --extra-vars "ansible_sudo_pass=<PASWORD>"
+```
+3. Play & enjoy =)
+4. Remove cluster:
+```shell
+ansible-playbook playbooks/90-*.yaml --extra-vars "ansible_user=<USERNAME>" --extra-vars "ansible_sudo_pass=<PASWORD>"
 ```
